@@ -1,0 +1,5 @@
+{
+  "name": "Veritas Check",
+  "description": "A minimalist, high-contrast plagiarism checker featuring Google Search grounding.",
+  "requestFramePermissions": []
+}
