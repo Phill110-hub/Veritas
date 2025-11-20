@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { AnalysisResult } from "../types";
 
@@ -11,20 +12,24 @@ export const checkPlagiarism = async (text: string): Promise<AnalysisResult> => 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Analyze the following text for plagiarism and originality. 
+      contents: `Analyze the provided text for plagiarism and originality.
       
       Text to analyze:
       "${text}"
       
-      Task:
-      1. Search the web to see if this text matches existing content.
-      2. Provide a summary of your findings. Are there direct quotes? Is it paraphrased?
-      3. Conclude with an estimated "Originality Score" from 0 to 100 (where 100 is completely original/unique).
+      Instructions:
+      1. STRICTLY Search the web to see if this specific text appears online.
+      2. Identify if the text is:
+         - A direct copy (verbatim).
+         - Paraphrased (rewritten but same ideas).
+         - Original (unique content).
+      3. If it matches a source, explicitly name the source in the summary.
+      4. Conclude with an "Originality Score" from 0 (Completely Plagiarized) to 100 (Completely Original).
       
-      Format the output as a clear, concise report.`,
+      Format the output as a professional detection report.`,
       config: {
         tools: [{ googleSearch: {} }],
-        temperature: 0.2,
+        temperature: 0.1, // Lower temperature for more factual/analytical results
       },
     });
 
@@ -42,14 +47,18 @@ export const checkPlagiarism = async (text: string): Promise<AnalysisResult> => 
 
     // Attempt to extract a score using regex from the text text if possible, 
     // otherwise default to a neutral calculation or 100 if no sources found.
-    // This is a heuristic since we can't use JSON schema with Search Grounding.
     const scoreMatch = outputText.match(/Originality Score[:\s]*(\d+)/i);
-    let score = scoreMatch ? parseInt(scoreMatch[1], 10) : (sources.length > 0 ? 50 : 100);
+    
+    // Heuristic: If sources are found but no score detected, penalize based on source count
+    let calculatedScore = sources.length > 0 ? Math.max(0, 100 - (sources.length * 20)) : 100;
+    
+    let score = scoreMatch ? parseInt(scoreMatch[1], 10) : calculatedScore;
 
     // Remove duplicates from sources
     const uniqueSources = sources.filter((v, i, a) => a.findIndex(t => (t.uri === v.uri)) === i);
 
     return {
+      type: 'WEB',
       text: outputText,
       score,
       sources: uniqueSources,
